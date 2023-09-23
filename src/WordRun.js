@@ -1,16 +1,21 @@
 import React, { useEffect, useState, useRef } from 'react';
-import { Animated, Easing, Button, TouchableOpacity, Stylesheet, Text, View } from 'react-native';
+import { Animated, Easing, Button, TouchableOpacity, StyleSheet, Text, View } from 'react-native';
 import { Audio } from 'expo-av';
 import * as FileSystem from 'expo-file-system';
 import { FontAwesome } from '@expo/vector-icons';
 import axios from 'axios';
 
-const WordRun = () => {
+const WordRun = ({navigation}) => {
+  // navigation.setOptions({
+  //   headerLeft: () => null, // Disable the back button
+  // });
   const [sentences, setSent] = useState([]);
   const [loading, setLoading] = useState();
   const [currentLineIndex, setCurrentLineIndex] = useState(0);
   const [currentWordIndex, setCurrentWordIndex] = useState(0);
   const [start, setStart] = useState(false);
+  const [cont, setCont] = useState(true);
+  const [audpath, setAudPath] = useState("");
   const bounceValue = useRef(new Animated.ValueXY()).current;
 
   const [recording, setRecording] = useState(null);
@@ -96,35 +101,20 @@ const WordRun = () => {
           to: FileSystem.documentDirectory + 'recordings/' + `${fileName}`
         });
 
-        // This is for simply playing the sound back
-        const playbackObject = new Audio.Sound();
-        await playbackObject.loadAsync({ uri: FileSystem.documentDirectory + 'recordings/' + `${fileName}` });
-        await playbackObject.playAsync();
-
         const loc = FileSystem.documentDirectory + 'recordings/' + `${fileName}`;
-        
-        const audioData = await FileSystem.readAsStringAsync(loc, {
-          encoding: FileSystem.EncodingType.Base64,
-        });
-
-        const url = 'http:127.0.0.1:8080/audio';
-        const formData = new FormData();
-        formData.append('audioFile', audioData, 'audio.caf');
-
-        // Make an Axios POST request with the FormData
-        const response = await axios.post(url, formData, {
-          headers: {
-            'Content-Type': 'multipart/form-data', // Important for binary data
-          },
-        });
-
-        // Handle the server's response
-        console.log('Upload successful:', response.data);
-
 
         // resert our states to record again
         setRecording(null);
         setRecordingStatus('stopped');
+
+        try {
+          navigation.navigate("Details", {
+            orig: sentences,
+            audio: loc
+          });
+        } catch (error) {
+          console.error("Navigation error:", error);
+        }
       }
 
     } catch (error) {
@@ -196,9 +186,7 @@ const WordRun = () => {
 
     if (recording) {
       const audioUri = await stopRecording(recording);
-      if (audioUri) {
-        console.log('Saved audio file to', savedUri);
-      }
+
     } else {
       await startRecording();
     }
@@ -235,7 +223,7 @@ const WordRun = () => {
               title={start ? 'Stop Recording' : 'Start Recording'}
               onPress={() => handleRecordButtonPress()}
             />
-      </View>
+        </View>
       )}
     </View>
   );

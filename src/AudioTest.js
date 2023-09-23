@@ -1,5 +1,6 @@
-import { Text, TouchableOpacity, View, StyleSheet } from 'react-native';
 import React, { useState, useEffect } from 'react';
+import { Text, TouchableOpacity, View, StyleSheet } from 'react-native';
+import Svg, { Circle } from 'react-native-svg';
 import { Audio } from 'expo-av';
 import * as FileSystem from 'expo-file-system';
 import { FontAwesome } from '@expo/vector-icons';
