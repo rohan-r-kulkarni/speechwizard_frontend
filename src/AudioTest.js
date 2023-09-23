@@ -3,6 +3,7 @@ import React, { useState, useEffect } from 'react';
 import { Audio } from 'expo-av';
 import * as FileSystem from 'expo-file-system';
 import { FontAwesome } from '@expo/vector-icons';
+import axios from 'axios';
 
 export default function AudioTest() {
   
@@ -15,7 +16,6 @@ export default function AudioTest() {
     // Simply get recording permission upon first render
     async function getPermission() {
       await Audio.requestPermissionsAsync().then((permission) => {
-        console.log('Permission Granted: ' + permission.granted);
         setAudioPermission(permission.granted)
       }).catch(error => {
         console.log(error);
@@ -77,6 +77,27 @@ export default function AudioTest() {
         await playbackObject.loadAsync({ uri: FileSystem.documentDirectory + 'recordings/' + `${fileName}` });
         await playbackObject.playAsync();
 
+        const loc = FileSystem.documentDirectory + 'recordings/' + `${fileName}`;
+        
+        const audioData = await FileSystem.readAsStringAsync(loc, {
+          encoding: FileSystem.EncodingType.Base64,
+        });
+
+        const url = 'http:127.0.0.1:8080/audio';
+        const formData = new FormData();
+        formData.append('audioFile', audioData, 'audio.caf');
+
+        // Make an Axios POST request with the FormData
+        const response = await axios.post(url, formData, {
+          headers: {
+            'Content-Type': 'multipart/form-data', // Important for binary data
+          },
+        });
+
+        // Handle the server's response
+        console.log('Upload successful:', response.data);
+
+
         // resert our states to record again
         setRecording(null);
         setRecordingStatus('stopped');
@@ -101,7 +122,7 @@ export default function AudioTest() {
   return (
     <View style={styles.container}>
       <TouchableOpacity style={styles.button} onPress={handleRecordButtonPress}>
-        <FontAwesome name={recording ? 'stop-circle' : 'circle'} size={64} color="white" />
+        <FontAwesome name={recording ? 'stop-circle' : 'circle'} size={25} color="white" />
       </TouchableOpacity>
       <Text style={styles.recordingStatusText}>{`Recording status: ${recordingStatus}`}</Text>
     </View>
