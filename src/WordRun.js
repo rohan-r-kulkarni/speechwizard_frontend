@@ -1,16 +1,24 @@
 import React, { useEffect, useState, useRef } from 'react';
-import { Animated, Easing, Button, TouchableOpacity, StyleSheet, Text, View } from 'react-native';
+import { Animated, Easing, Button, TouchableHighlight, StyleSheet,SafeAreaView, Text, View } from 'react-native';
+import { useFocusEffect } from '@react-navigation/native';
 import { Audio } from 'expo-av';
 import * as FileSystem from 'expo-file-system';
 import { FontAwesome } from '@expo/vector-icons';
 import axios from 'axios';
 
-const WordRun = ({navigation}) => {
-  // navigation.setOptions({
-  //   headerLeft: () => null, // Disable the back button
-  // });
+const HOSTNAME = "http://10.206.94.15:8080/";
+
+const WordRun = ({route, navigation}) => {
+  navigation.setOptions({
+    title: "Challenge",
+
+    // headerLeft: () => null, // Disable the back button
+  });
+
+  const { suggestions, duration } = route.params;
+
   const [sentences, setSent] = useState([]);
-  const [loading, setLoading] = useState();
+  const [loading, setLoading] = useState(true);
   const [currentLineIndex, setCurrentLineIndex] = useState(0);
   const [currentWordIndex, setCurrentWordIndex] = useState(0);
   const [start, setStart] = useState(false);
@@ -23,21 +31,23 @@ const WordRun = ({navigation}) => {
   const [audioPermission, setAudioPermission] = useState(null);
 
   const fetchData = async () => {
-    const resp = await fetch('http://127.0.0.1:8080/gptreq', {
+    const resp = await fetch(HOSTNAME + 'gptreq', {
                   method: 'POST',
                   headers: {
                     'Content-Type': 'application/json'
                   },
-                  body: JSON.stringify({"hello":"bye"})
+                  body: JSON.stringify({"include":suggestions})
                 })
     const res_json = await resp.json();
-    setSent(res_json.res);
-
-    console.log(res_json);
-    console.log()
-                    
+    setSent(res_json.res);                    
     setLoading(false);
   };
+
+  // useFocusEffect(
+  //   React.useCallback(() => {
+  //     fetchData();
+  //   }, [])
+  // );
 
   useEffect(() => {
     fetchData();
@@ -59,7 +69,7 @@ const WordRun = ({navigation}) => {
         stopRecording();
       }
     };
-  }, []);
+  }, [loading]);
 
   async function startRecording() {
     try {
@@ -108,9 +118,11 @@ const WordRun = ({navigation}) => {
         setRecordingStatus('stopped');
 
         try {
+          setLoading(true);
           navigation.navigate("Details", {
             orig: sentences,
-            audio: loc
+            audio: loc,
+            duration: duration
           });
         } catch (error) {
           console.error("Navigation error:", error);
@@ -135,7 +147,7 @@ const WordRun = ({navigation}) => {
        // Start the animation every 1 second
       const interval = setInterval(() => {
         startBounceAnimation();
-      }, 100); // Adjust the interval to control the speed
+      }, duration); // Adjust the interval to control the speed
 
       // Clear the interval when the component unmounts
       return () => {
@@ -160,9 +172,10 @@ const WordRun = ({navigation}) => {
 
   // Function to perform bounce animation
   const startBounceAnimation = () => {
+    const dur = duration
     Animated.sequence([
       Animated.timing(bounceValue, {
-        toValue: { x: 0, y: 10 }, // Adjust the Y value to control the bounce height
+        toValue: { x: 0, y: 20 }, // Adjust the Y value to control the bounce height
         duration: 100,
         useNativeDriver: false,
       }),
@@ -193,12 +206,12 @@ const WordRun = ({navigation}) => {
   }
 
   return (
-    <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center' }}>
+    <SafeAreaView style={{ flex: 1, justifyContent: 'center', alignItems: 'center' }}>
       {loading ? (
         <Text>Loading...</Text>
       ) : 
       (
-      <View style={{flexDirection: 'column', alignItems:'center', paddingBottom:50}}>
+      <View style={{flexDirection: 'column', alignItems:'center', paddingBottom:50, gap:40}}>
       <View style={{ flexDirection: 'row', alignItems: 'center' }}>
         {sentences.length > 0 && sentences[currentLineIndex].split(' ').map((word, index) => (
           <View key={index} style={{ alignItems: 'center' }}>
@@ -219,14 +232,36 @@ const WordRun = ({navigation}) => {
         ))}
         
         </View>
-        <Button
-              title={start ? 'Stop Recording' : 'Start Recording'}
-              onPress={() => handleRecordButtonPress()}
-            />
+        <TouchableHighlight
+          style={styles.submit}
+          onPress={() => handleRecordButtonPress()}
+          underlayColor='#fff'>
+            <Text style={[styles.submitText]}>{start ? 'Stop Recording' : 'Start Recording'}</Text>
+        </TouchableHighlight>
         </View>
       )}
-    </View>
+    </SafeAreaView>
   );
 };
+
+const styles = StyleSheet.create({
+  submit: {
+    width: 200,
+    marginRight: 40,
+    marginLeft: 40,
+    marginTop: 10,
+    paddingTop: 10,
+    paddingBottom: 10,
+    backgroundColor: '#007bff',
+    borderRadius: 10,
+    borderWidth: 1,
+    borderColor: '#fff',
+  },
+  submitText: {
+    color: '#fff',
+    textAlign: 'center',
+    fontSize: 20,
+  }
+});
 
 export default WordRun;

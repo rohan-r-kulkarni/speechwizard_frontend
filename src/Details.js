@@ -1,9 +1,14 @@
 import React, { useEffect, useState, useRef } from 'react';
-import { Animated, Easing, Button, TouchableOpacity, StyleSheet, Text, View, SafeAreaView } from 'react-native';
+import { Animated, Easing, Button, TouchableHighlight, StyleSheet, Text, View, SafeAreaView } from 'react-native';
 import { Audio } from 'expo-av';
 import * as FileSystem from 'expo-file-system';
 import axios from 'axios';
 import ProgressCircle from './widgets/ProgressCircle';
+import * as Speech from 'expo-speech';
+
+const HOSTNAME = "http://10.206.94.15:8080/";
+const av = new Animated.Value(0);
+av.addListener(() => {return});
 
 function Details({route, navigation}) {
   navigation.setOptions({
@@ -11,11 +16,13 @@ function Details({route, navigation}) {
     headerLeft: () => null, // Disable the back button
   });
 
-  const { orig, audio } = route.params;
+  const { orig, audio, duration } = route.params;
   const [script, setScript] = useState("");
   const [wizard, setWizard] = useState("") 
   const [isLoading, setIsLoading] = useState(true); // Add isLoading state
   const [perc, setPerc] = useState(0);
+  const [sug, setSug] = useState([])
+  const [cloudsound, setCloudSound] = React.useState();
 
   useEffect(() => {
     setWizard(orig.join(" "));
@@ -25,10 +32,10 @@ function Details({route, navigation}) {
         encoding: FileSystem.EncodingType.Base64,
       });
   
-      const url = 'http:127.0.0.1:8080/audio';
+      const url = HOSTNAME + 'audio';
       const formData = new FormData();
       formData.append('audioFile', audioData, 'audio.caf');
-      const analytics_url = 'http:127.0.0.1:8080/text-analysis'
+      const analytics_url = HOSTNAME + 'text-analysis'
   
       try {
         const response = await axios.post(url, formData, {
@@ -48,6 +55,7 @@ function Details({route, navigation}) {
           },
         });
         setPerc(analytics.data.similarity)
+        setSug(analytics.data.suggestions)
       }
       catch (error) {
         console.error('Error:', error);
@@ -61,17 +69,62 @@ function Details({route, navigation}) {
 
   }, []);
 
-  async function play_audio(){
+  async function playAudio(){
     const playbackObject = new Audio.Sound();
     await playbackObject.loadAsync({ uri: audio });
     await playbackObject.playAsync();
   }
 
+  // async function playWizard(){
+
+    //get the wizard b64
+    // const url = 'http:127.0.0.1:8080/text-analysis';
+
+    // try {
+    //   const response = await axios.get(url);
+    //   const filename = FileSystem.documentDirectory + "cloud-audio.mp3";
+    //   await FileSystem.writeAsStringAsync(filename, response.bdata, {
+    //     encoding: FileSystem.EncodingType.Base64,
+    //   });
+    //   console.log(filename);
+
+      // const { sound } = await Audio.Sound.createAsync(filename);
+      // setSound(sound);
+
+      // console.log('Playing Sound');
+      // await sound.playAsync();
+    // }
+    // catch (error) {
+    //   console.error('Cloud Audio Error:', error);
+    // } 
+
+  // }
+
+  const speakText =  (text) => {
+    try {
+      // Speak the provided text
+      Speech.speak(text);
+
+    } catch (error) {
+      console.error('Speech error:', error);
+    }
+  };
+
   const TopBar = () => {
     return (
       <View style={styles.topBar}>
-        <Button color="#ffffff" title="Play Your Words" onPress={() => play_audio()} />
-        <Button color="#ffffff" title="Right" onPress={() => console.log('Right button pressed')} />
+        <TouchableHighlight
+          style={styles.topButton}
+          onPress={() => playAudio()}
+          underlayColor='#fff'>
+            <Text style={[styles.topButtonText]}>Play Your Words</Text>
+        </TouchableHighlight>
+        <TouchableHighlight
+          style={styles.topButton}
+          onPress={() => speakText("hello world!")}
+          underlayColor='#fff'>
+            <Text style={[styles.topButtonText]}>Play Wizard Words</Text>
+        </TouchableHighlight>
       </View>
     );
   };
@@ -79,9 +132,30 @@ function Details({route, navigation}) {
   const BottomBar = () => {
     return (
       <View style={styles.bottomBar}>
-        <Button title="Quit :(" onPress={() => navigation.navigate("Home")} />
-        <Button title="Next level!" onPress={() => console.log('Right button pressed')} />
+        <TouchableHighlight
+        style={styles.bottomButton}
+        onPress={() => navigation.navigate("Home")}
+        underlayColor='#fff'>
+          <Text style={[styles.bottomButtonText]}>Quit</Text>
+      </TouchableHighlight>
+      {sug.length > 0 && <Text style={{ fontSize: 18, color: 'red'}}>Work On: {sug.join(", ")}</Text>}
+      <TouchableHighlight
+        style={styles.bottomButton}
+        onPress={() => navigation.navigate("WordRun", {
+          suggestions : sug,
+          duration: duration
+        })}
+        underlayColor='#fff'>
+          <Text style={[styles.bottomButtonText]}>Next level!</Text>
+      </TouchableHighlight>
+        {/* <Button title="Quit :(" onPress={() => navigation.navigate("Home")} />
+        
+        <Button title="Next level!" onPress={() => navigation.navigate("WordRun", {
+          suggestions : sug,
+          duration: duration
+        })} /> */}
       </View>
+
     );
   };
 
@@ -93,18 +167,18 @@ function Details({route, navigation}) {
       <View style={styles.block}>
         <Text style={styles.header}>Your Words</Text>
         {isLoading ? ( // Conditional rendering based on isLoading
-            <Text style={{ fontSize: 20}}>Loading...</Text>
+            <Text style={{ fontSize: 18}}>Loading...</Text>
           ) : (
-            <Text style={{ fontSize: 20}}>{script}</Text> // Render the fetched script when not loading
+            <Text style={{ fontSize: 18}}>{script}</Text> // Render the fetched script when not loading
           )}
       </View>
       <View style={styles.separator}></View>
       <View style={styles.block}>
         <Text style={styles.header}>Wizard Words</Text>
         {isLoading ? ( // Conditional rendering based on isLoading
-            <Text style={{ fontSize: 20}}>Loading...</Text>
+            <Text style={{ fontSize: 18}}>Loading...</Text>
           ) : (
-            <Text style={{ fontSize: 20}}>{wizard}</Text> // Render the fetched script when not loading
+            <Text style={{ fontSize: 18}}>{wizard}</Text> // Render the fetched script when not loading
           )}
       </View>
     </View>
@@ -115,6 +189,40 @@ function Details({route, navigation}) {
 };
 
 const styles = StyleSheet.create({
+  bottomButton: {
+    width: 110,
+    marginRight: 20,
+    marginLeft: 20,
+    marginTop: 10,
+    paddingTop: 10,
+    paddingBottom: 10,
+    backgroundColor: '#007bff',
+    borderRadius: 10,
+    borderWidth: 1,
+    borderColor: '#fff',
+  },
+  bottomButtonText: {
+    color: '#fff',
+    textAlign: 'center',
+    fontSize: 18,
+  },
+  topButton: {
+    width: 150,
+    marginRight: 10,
+    marginLeft: 10,
+    marginTop: 10,
+    paddingTop: 10,
+    paddingBottom: 10,
+    backgroundColor: '#fff',
+    borderRadius: 10,
+    borderWidth: 1,
+    borderColor: '#fff',
+  },
+  topButtonText: {
+    color: '#007bff',
+    textAlign: 'center',
+    fontSize: 14,
+  },
   container: {
     flex: 1,
     flexDirection: 'column',
